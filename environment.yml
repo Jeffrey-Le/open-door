@@ -1,0 +1,45 @@
+# Open Door — conda environment (alternative to requirements.txt + venv)
+#
+# Create with:   conda env create -f environment.yml
+# Activate with: conda activate opendoor
+#
+# For a hackathon, a plain venv + requirements.txt is lighter and faster; this
+# is here for parity if conda is your default. All the project's real deps are
+# pip packages, so most of the work happens in the pip: block below.
+
+name: opendoor
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # Core: the planner (Anthropic centerpiece)
+      - anthropic
+
+      # Server + frontend host
+      - fastapi
+      - uvicorn[standard]
+      - jinja2
+      - python-multipart
+
+      # Browse leg (Browserbase) — pick your harness in Claude Code
+      - playwright          # then run: playwright install
+      # - stagehand         # uncomment if using Stagehand instead
+      - browserbase
+
+      # Speak leg (Deepgram) — STT intake + TTS spoken gate confirmations
+      - deepgram-sdk
+
+      # Observability seam (Sentry) — no-op unless OPENDOOR_SENTRY=1
+      - sentry-sdk
+
+      # Dev / test
+      - pytest
+      - httpx
+
+# After first successful install + run, freeze for reproducibility:
+#   pip freeze > requirements.lock.txt

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!--
+  Mock pharmacy portal — a TEST FIXTURE for Open Door's Browserbase leg.
+
+  Why this exists: the browse effector needs a stable, controlled target to
+  develop and DEMO against, instead of depending on a real pharmacy site
+  behaving on the day. This page mimics a plausible patient portal: sign in,
+  find a prescription, see refill availability + out-of-pocket cost, and a
+  final submit that is the IRREVERSIBLE step Open Door must gate.
+
+  Design for agents, not for show:
+    - Every interactive element has a stable id AND a visible <label>, so
+      Stagehand/Playwright can locate by either. IDs are semantic and won't
+      shift (#rx-search, #refill-submit, etc.).
+    - data-testid mirrors each id for harnesses that prefer test selectors.
+    - The flow is linear and deterministic: same input -> same screen.
+    - The cost is shown BEFORE the submit, so the agent has real information to
+      read back to the patient at the spoken gate.
+
+  Serve standalone (file:// or any static host). No backend, no network.
+  State lives in-memory in JS; reload resets. Single fixture patient below.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BayMeds Pharmacy — Patient Portal</title>
+<style>
+  :root {
+    --ink: #1a2b3a; --muted: #5a6b7a; --line: #d4dde4; --bg: #f3f6f8;
+    --panel: #ffffff; --brand: #0a6c74; --brand-ink: #ffffff;
+    --warn-bg: #fff4e5; --warn-ink: #7a4b00; --ok: #1a7f4b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink); background: var(--bg); line-height: 1.5;
+  }
+  header.bar {
+    background: var(--brand); color: var(--brand-ink);
+    padding: 14px 24px; display: flex; align-items: center; gap: 10px;
+  }
+  header.bar .logo { font-weight: 700; letter-spacing: .3px; font-size: 18px; }
+  header.bar .tag { font-size: 13px; opacity: .85; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 22px 24px; margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 14px; color: var(--ink); }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 5px; }
+  input[type=text], input[type=password] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 7px; font-size: 15px; margin-bottom: 14px;
+  }
+  button {
+    background: var(--brand); color: var(--brand-ink); border: 0;
+    padding: 11px 18px; border-radius: 7px; font-size: 15px; font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: #e7edf1; color: var(--ink); }
+  button:focus-visible { outline: 3px solid #9fd; outline-offset: 2px; }
+  .rx {
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px;
+    margin-bottom: 12px;
+  }
+  .rx .name { font-weight: 700; font-size: 16px; }
+  .rx .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline;
+         padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--muted); font-size: 14px; }
+  .row .v { font-weight: 600; }
+  .cost { font-size: 28px; font-weight: 800; color: var(--ink); }
+  .notice {
+    background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px;
+    padding: 12px 14px; font-size: 14px; margin: 16px 0;
+  }
+  .done { color: var(--ok); font-weight: 700; }
+  .hidden { display: none; }
+  .crumb { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <span class="logo">BayMeds</span>
+  <span class="tag">Patient Portal</span>
+</header>
+
+<main>
+  <!-- ── Screen 1: Sign in ─────────────────────────────────────────────── -->
+  <!-- NOTE for the agent loop: this is read-only/reversible (Risk.SAFE).
+       Open Door should NOT enter credentials itself per the credential rule —
+       in the demo, treat sign-in as pre-authenticated or have the human do it.
+       Fixture creds shown only so the page is self-contained for testing. -->
+  <section id="screen-signin" class="panel">
+    <h1>Sign in</h1>
+    <p class="sub">Access your prescriptions and request refills.</p>
+    <label for="username">Username</label>
+    <input type="text" id="username" data-testid="username" autocomplete="off"
+           placeholder="e.g. r.delgado" />
+    <label for="password">Password</label>
+    <input type="password" id="password" data-testid="password" autocomplete="off" />
+    <button id="signin-btn" data-testid="signin-btn">Sign in</button>
+    <p class="sub" style="margin-top:14px;font-size:12px;">
+      Test fixture credentials: <code>r.delgado</code> / <code>demo</code>
+    </p>
+  </section>
+
+  <!-- ── Screen 2: Prescriptions ───────────────────────────────────────── -->
+  <section id="screen-list" class="panel hidden">
+    <div class="crumb">Signed in as Rosa Delgado</div>
+    <h1>Your prescriptions</h1>
+    <p class="sub">Find a medication to request a refill.</p>
+    <label for="rx-search">Search prescriptions</label>
+    <input type="text" id="rx-search" data-testid="rx-search"
+           placeholder="e.g. metformin" />
+    <div id="rx-results">
+      <!-- One fixture prescription. The agent searches, then opens it. -->
+      <div class="rx" id="rx-metformin" data-testid="rx-metformin" data-rx="metformin">
+        <div class="name">Metformin 500 mg</div>
+        <div class="meta">Tablet · 90-day supply · Refills remaining: 2</div>
+        <div class="meta">Last filled: Mar 18, 2026 · Prescriber: Dr. A. Okafor</div>
+        <div style="margin-top:12px;">
+          <button id="open-metformin" data-testid="open-metformin"
+                  class="secondary">View refill</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Screen 3: Refill detail + cost (the gate's information source) ── -->
+  <section id="screen-refill" class="panel hidden">
+    <div class="crumb">Prescriptions › Metformin 500 mg</div>
+    <h1>Request refill</h1>
+    <p class="sub">Review the details before submitting.</p>
+
+    <div class="row"><span class="k">Medication</span><span class="v">Metformin 500 mg</span></div>
+    <div class="row"><span class="k">Supply</span><span class="v">90-day</span></div>
+    <div class="row"><span class="k">Pharmacy</span><span class="v">BayMeds — 14th & Oak</span></div>
+    <div class="row"><span class="k">Availability</span><span class="v" id="availability" data-testid="availability">In stock — ready in 2 hours</span></div>
+
+    <p class="sub" style="margin-top:20px;">Your estimated out-of-pocket cost</p>
+    <div class="cost" id="copay" data-testid="copay">$14.00</div>
+
+    <!-- This notice is the honest-tradeoff hook: a cheaper option exists.
+         Open Door's planner can surface this at the spoken gate, mirroring the
+         care signal from the Due Process Counsel node. -->
+    <div class="notice" id="cost-note" data-testid="cost-note">
+      A 90-day mail-order supply would cost $6.00, but takes 5–7 days to arrive.
+      In-store pickup today is $14.00.
+    </div>
+
+    <!-- THE GATED ACTION. Risk.IRREVERSIBLE. Open Door must pause at a spoken
+         confirmation BEFORE clicking this. The button is intentionally the only
+         thing that advances to the confirmation screen. -->
+    <button id="refill-submit" data-testid="refill-submit">Submit refill request</button>
+    <button class="secondary" id="refill-cancel" data-testid="refill-cancel"
+            style="margin-left:8px;">Cancel</button>
+  </section>
+
+  <!-- ── Screen 4: Confirmation (post-submit) ──────────────────────────── -->
+  <section id="screen-confirm" class="panel hidden">
+    <h1 class="done">Refill requested ✓</h1>
+    <p class="sub">Confirmation #<span id="confirm-no" data-testid="confirm-no">—</span></p>
+    <div class="row"><span class="k">Medication</span><span class="v">Metformin 500 mg</span></div>
+    <div class="row"><span class="k">Cost</span><span class="v">$14.00</span></div>
+    <div class="row"><span class="k">Ready</span><span class="v">Today, by 5:00 PM</span></div>
+    <div class="row"><span class="k">Pickup</span><span class="v">BayMeds — 14th & Oak</span></div>
+    <p class="sub" style="margin-top:18px;">A reminder will be sent when it's ready.</p>
+  </section>
+</main>
+
+<script>
+  // Deterministic, in-memory flow. No network. Reload resets.
+  const show = (id) => {
+    ['screen-signin','screen-list','screen-refill','screen-confirm']
+      .forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
+  };
+
+  document.getElementById('signin-btn').addEventListener('click', () => {
+    // Accept the fixture creds; the page is a test target, not a security demo.
+    show('screen-list');
+  });
+
+  document.getElementById('rx-search').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const card = document.getElementById('rx-metformin');
+    card.style.display = (q === '' || 'metformin'.includes(q)) ? '' : 'none';
+  });
+
+  document.getElementById('open-metformin').addEventListener('click', () => {
+    show('screen-refill');
+  });
+
+  document.getElementById('refill-cancel').addEventListener('click', () => {
+    show('screen-list');
+  });
+
+  document.getElementById('refill-submit').addEventListener('click', () => {
+    // This is the irreversible step. In the real flow Open Door only reaches
+    // this click AFTER the spoken human confirmation has returned a yes.
+    const no = 'BM' + Math.floor(100000 + Math.random() * 900000);
+    document.getElementById('confirm-no').textContent = no;
+    show('screen-confirm');
+  });
+</script>
+</body>
+</html>

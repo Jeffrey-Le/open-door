@@ -1,0 +1,32 @@
+# Open Door — Python dependencies
+# Python 3.11+ recommended (contracts use 3.10+ union syntax).
+
+# --- Core: the planner (Anthropic centerpiece) ---
+anthropic                  # Claude SDK — the planner calls this
+
+# --- Server + frontend host ---
+fastapi                    # API server (reuse of the Due Process spine)
+uvicorn[standard]          # ASGI server to run FastAPI
+jinja2                     # if you template the single-file frontend
+python-multipart           # form/file handling if the UI posts audio
+
+# --- Browse leg (Browserbase) ---
+# Browserbase is driven via their platform; install whichever harness you use.
+# Stagehand / Playwright are the common paths — pick one in Claude Code:
+playwright                 # if going the Playwright route (also: run `playwright install`)
+# stagehand                # uncomment if you use Stagehand instead
+browserbase                # Browserbase SDK/client
+
+# --- Speak leg (Deepgram) — both directions ---
+deepgram-sdk               # STT (intake) + TTS (spoken gate confirmations)
+
+# --- Observability seam (Sentry) — optional, enabled by flag ---
+sentry-sdk                 # no-op unless OPENDOOR_SENTRY=1 + SENTRY_DSN
+
+# --- Dev / test ---
+pytest                     # regression tests against the golden scenario
+httpx                      # FastAPI TestClient dependency + general HTTP
+
+# NOTE: versions intentionally unpinned — let pip resolve latest-compatible on
+# first install, then freeze with `pip freeze > requirements.lock.txt` once it
+# works, so your demo environment is reproducible.

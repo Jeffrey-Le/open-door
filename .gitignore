@@ -1,0 +1,17 @@
+# Secrets — never commit real keys
+.env
+
+# Local app state (history, tasks) — may contain personal goal text
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Playwright / test artifacts
+test-results/
+
+# macOS
+.DS_Store
