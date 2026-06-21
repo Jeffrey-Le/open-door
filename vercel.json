@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "api/index.py" },
+    { "source": "/portal", "destination": "/public/mock_pharmacy.html" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}

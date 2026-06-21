@@ -1,0 +1,15 @@
+<svg width="1280" height="720" viewBox="0 0 680 383" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<rect x="0" y="0" width="680" height="383" fill="#0b3f47"/>
+<rect x="430" y="0" width="250" height="383" fill="#0e4a54"/>
+<polygon points="486,306 598,306 560,383 300,383" fill="#f7ecd2" opacity="0.10"/>
+<rect x="470" y="56" width="146" height="274" rx="5" fill="#0f5862"/>
+<rect x="481" y="66" width="124" height="254" rx="2" fill="#f7ecd2"/>
+<polygon points="481,66 529,52 529,306 481,320" fill="#06303a"/>
+<circle cx="519" cy="188" r="4.5" fill="#c79a52"/>
+<text x="52" y="120" font-size="17" font-weight="500" fill="#79acae" letter-spacing="2">CARE, MADE LEGIBLE</text>
+<text x="50" y="186" font-size="64" font-weight="700" fill="#ffffff">Open Door</text>
+<rect x="54" y="204" width="120" height="6" rx="3" fill="#e0533d"/>
+<text x="54" y="252" font-size="23" font-weight="400" fill="#bfe0dd">It does your bureaucratic errands —</text>
+<text x="54" y="284" font-size="23" font-weight="600" fill="#ffffff">and asks before it acts.</text>
+<text x="54" y="340" font-size="17" font-weight="400" fill="#82b0b2">voice  ·  works the web  ·  never spends without a yes</text>
+</svg>
