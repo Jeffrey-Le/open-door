@@ -1,87 +1,128 @@
 # Open Door
 
-An AI agent that does bureaucratic and logistical legwork for people who can't
-easily do it themselves — homebound, low-vision, low-literacy, or elderly people
-locked out of the phone trees and web portals that now run daily life.
+**An AI agent that does the bureaucratic errands of daily life for people who can't — and never spends their money or does anything irreversible without asking first, out loud.**
 
-One Claude planner takes a spoken goal, decomposes it into a visible plan,
-chooses the right "body" for each step, and **stops to ask before anything
-costly or irreversible**. Care made legible: powerful enough to act, careful
-enough to ask first.
+Daily life now runs on phone trees and web portals. If you're homebound, low-vision, low-literacy, or elderly, that quietly locks you out of basic, dignity-level tasks: refilling a prescription, renewing a registration, paying a bill. Tools built for general users assume you can see a screen and supervise an agent the whole way — the people who most need help are the ones they were never built for.
 
-**Flagship demo:** a homebound patient refills a prescription by voice. The
-agent confirms details aloud, navigates the pharmacy portal, surfaces the real
-out-of-pocket cost, and pauses for a spoken yes before submitting.
+Open Door takes a spoken goal, decomposes it into a visible plan, works the web on your behalf, and **stops to ask — by voice — before anything costly or irreversible.** Care made legible: powerful enough to act, careful enough to ask first.
+
+> **Flagship demo:** a homebound patient refills a prescription by voice. The agent confirms details aloud, navigates the pharmacy portal, reads the real out-of-pocket cost off the page, and pauses for a spoken "yes" before submitting.
 
 ---
 
-## Prize strategy (why the project is shaped this way)
+## How it works
 
-| Track | Fit | Role |
+A single Claude planner turns a spoken goal into a structured `Plan`. Each step is dispatched to an **effector** — a swappable "body" — and the run pauses at a human gate before any costly or irreversible action.
+
+| Leg | What it does | Powered by |
 |---|---|---|
-| **Anthropic** (primary) | Health/access, Claude Code, biggest swing at a hard human problem, care over polish | The spine. The visible-reasoning planner IS the pitch. |
-| **Deepgram** (Switch 2) | Voice essential, not tacked on | Deep leg. User can't read the screen → spoken gate confirmations are load-bearing. |
-| **Sentry** (Switch 2) | Reliability + observability of real-world actions | Audit trail of every action the agent takes. Must be *exercised*, not just wired. |
-| **Browserbase** (bonus) | Web agent on their platform | Deep technical leg + Anthropic technical-depth showcase. |
+| **Plan** | Decomposes the goal into a visible, ordered plan; tags each step's risk; writes the spoken lines | Claude (Anthropic) |
+| **Browse** | Drives a real browser through the portal: read the page, find the item, surface the real cost, submit | Playwright (local) / Browserbase (cloud) |
+| **Speak** | Voices the gate question and reads results aloud (TTS); hears the goal and the yes/no answer (STT) | Deepgram (Aura + Nova) |
+| **Gate** | Pauses at any costly/irreversible step and refuses to proceed without an explicit human "yes" | dispatch state machine |
+| **Observe** | Captures every effector failure and records what the human approved at each gate | Sentry |
 
-No robot leg — deliberately cut so three legs go deep instead of four going
-shallow. The `Effector` Protocol leaves the seam **open** to add one later
-(lab/v2) with zero refactor: add an enum entry + one backend class.
+Two design rules hold the whole thing together:
+
+1. **The Plan is a first-class, serializable object** — the frontend renders it directly, so you watch the agent's reasoning as live data.
+2. **Effectors share one Protocol** and are resolved by a registry lookup (never an `if/else`), so mock and live backends are interchangeable and a new leg is one `register()` call. Going live is configuration, not a refactor.
+
+The gate is **structural, not cosmetic**: the browse effector never decides to submit — it only clicks the irreversible button when dispatch hands it the gated step, which dispatch does only after a human yes. Declining halts the rest of the plan, so it can never falsely report success.
 
 ---
 
-## What's already built (the load-bearing contracts)
+## Try it out
 
-- `agent/contracts.py` — `Plan` / `Step` / `Risk` / `Effector` / `EffectorBackend`.
-  The Plan is a first-class serializable object; the frontend renders it directly.
-  Three-way risk gating (safe / costly / irreversible). Effectors are a Protocol
-  so backends are swappable and extensible.
-- `agent/planner.py` — the Anthropic centerpiece: system prompt + strict-JSON
-  schema + the golden "metformin refill" regression example. Effectors are a
-  *menu* the model picks from (open seam). Forces honest rationale + over-gating.
-- `agent/observability.py` — the Sentry seam. Stubbed; enable with
-  `OPENDOOR_SENTRY=1` + `SENTRY_DSN`. Wraps effector execution and the human gate.
+### Prerequisites
+- Python 3.11 (conda recommended)
 
-## What to build in Claude Code (in order, against live keys)
-
-1. **`effectors/browse.py` (Browserbase) — build & test FIRST.** Your deep
-   technical leg. Real portal navigation, recovery when a page misbehaves,
-   stop-before-submit. Stand up a mock pharmacy portal in `portal/` to test
-   offline (reuse the mock-portal pattern). Decorate `execute` with
-   `@instrument_step`.
-2. **`effectors/speak.py` (Deepgram).** STT for intake, **TTS for the spoken
-   gate confirmations** — build BOTH directions; the spoken "this costs $X,
-   proceed?" is what clears Deepgram's "essential" bar. Start from their 40-min
-   starter app.
-3. **`agent/dispatch.py` + execution loop.** A *lookup over registered
-   effectors* (keeps the seam open — no hardcoded if/else). Wraps the gate with
-   `record_gate` / `record_gate_decision`. Pauses at gated steps for a yes.
-4. **`frontend/` — the hero UI.** Render `Plan.to_dict()`: steps light up as
-   they run, gated steps pause **red** and the question is **spoken**, results
-   fill in. This is the screenshot-worthy element.
-
-## Before the demo
-- Iterate the planner prompt OFFLINE against `GOLDEN_EXAMPLE` to save credits.
-  ($25 total — budget it; use a cheaper model while iterating, strongest for the
-  demo run.)
-- Parse the planner's JSON defensively (strip fences, retry once on malformed).
-- **Exercise Sentry once for real** — kill the mock portal mid-browse, confirm
-  the capture lands in your dashboard. Un-triggered observability doesn't win.
-- Keep one labeled end-to-end scenario green as a regression anchor.
-
-## Pitch (what you say when judges walk up)
-> Open Door handles the bureaucratic and physical errands of daily life for
-> people who can't — it talks to you, works the web for you — and it never does
-> anything costly or irreversible without asking you first.
-
-Lead with **aspiration**: this is a hard, unsolved, dignity-level problem.
-Anthropic said effort and ambition matter more than outcome — so frame the swing.
-
-## Env
+### 1. Set up the environment
+```bash
+conda env create -f environment.yml
+conda activate opendoor
+python -m playwright install chromium      # for the real browse leg
 ```
-ANTHROPIC_API_KEY=...
-BROWSERBASE_API_KEY=...
-DEEPGRAM_API_KEY=...
-OPENDOOR_SENTRY=1        # optional
-SENTRY_DSN=...           # if OPENDOOR_SENTRY=1
+<details><summary>Prefer a plain venv?</summary>
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
 ```
+</details>
+
+### 2. Run it — no API keys needed
+```bash
+python -m frontend.server
+```
+Open **http://127.0.0.1:8000** and click **Plan & run**. Out of the box it runs **fully offline**: a deterministic golden plan, mock effectors, and the browser's built-in voice. To use a **real local browser** against the bundled mock pharmacy portal (still no key required), set `OPENDOOR_BROWSE=real`.
+
+### 3. Go live (optional)
+Copy the template and fill in whichever keys you have:
+```bash
+cp .env.example .env
+```
+```ini
+ANTHROPIC_API_KEY=...     # live planner (real goal -> real plan)
+DEEPGRAM_API_KEY=...      # real voice in + out
+OPENDOOR_SPEAK=real
+BROWSERBASE_API_KEY=...   # cloud browser (optional; local needs no key)
+BROWSERBASE_PROJECT_ID=...
+OPENDOOR_SENTRY=1         # observability (optional)
+SENTRY_DSN=...
+```
+Restart the server. `.env` is loaded automatically and is gitignored — keys never get committed. Each leg degrades gracefully: with no key, it falls back to the offline path for that leg.
+
+### 4. Verify
+```bash
+pytest                          # 26 offline tests (no keys, no network)
+python scripts/healthcheck.py   # live end-to-end probe of every leg (needs keys)
+```
+
+---
+
+## Configuration
+
+All optional; set in `.env` or the environment.
+
+| Variable | Effect |
+|---|---|
+| `OPENDOOR_BROWSE` | `real` = local Chromium · `cloud` = Browserbase · unset = offline mock |
+| `OPENDOOR_HEADED=1` | Show the Chromium window during a run (default headless) |
+| `OPENDOOR_SPEAK=real` | Use Deepgram voice (TTS+STT); otherwise the browser's Web Speech |
+| `OPENDOOR_SENTRY=1` | Enable Sentry (requires `SENTRY_DSN`) |
+| `OPENDOOR_PLANNER_MODEL` | Override the planner model (default `claude-opus-4-8`) |
+
+---
+
+## Project structure
+
+```
+agent/
+  contracts.py      Plan / Step / Risk / Effector / EffectorBackend
+  planner.py        the Claude planner: prompt, defensive JSON parsing, retries
+  dispatch.py       execution loop + the pausable human gate
+  observability.py  Sentry seam (instrument effectors + record gate decisions)
+  store.py          JSON-backed persistence (services, errands, history)
+  demo.py           the golden plan + env-selected effector registry
+effectors/
+  base.py           the effector registry (the open seam, in code)
+  browse.py         Playwright/Browserbase web navigation
+  speak.py          Deepgram TTS + STT
+  mock.py           offline mock backends
+frontend/
+  server.py         FastAPI host: drives runs, streams state over SSE
+  index.html        the hero UI: live plan, spoken gate, errands, history
+portal/
+  mock_pharmacy.html  deterministic test fixture for the browse leg
+tests/                26 tests, all offline
+scripts/healthcheck.py
+```
+
+---
+
+## Status & what's next
+
+All four legs are live and verified, with persistence, an urgency-ordered errands queue, a connected-services view, and an in-app action history. The planner already generalizes to new errands (e.g. a DMV renewal); the browse leg is scripted to the demo portal today. The clear next steps are generalizing the browse leg to natural-language navigation of arbitrary real portals, real per-service account connections, and an interactive "clarify" step that collects missing details mid-plan.
+
+Built for the AI Hackathon 2026 with Claude, Deepgram, Browserbase, and Sentry.
